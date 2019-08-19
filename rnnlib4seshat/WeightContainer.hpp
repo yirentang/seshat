@@ -37,8 +37,8 @@ the following copyright and permission notice:
   You should have received a copy of the GNU General Public License
   along with RNNLIB.  If not, see <http://www.gnu.org/licenses/>.*/
 
-#ifndef _INCLUDED_WeightContainer_h  
-#define _INCLUDED_WeightContainer_h  
+#ifndef _INCLUDED_WeightContainer_h
+#define _INCLUDED_WeightContainer_h
 
 #include <vector>
 #include <numeric>
@@ -51,16 +51,16 @@ the following copyright and permission notice:
 
 using namespace std;
 
-typedef multimap<string, tuple<string, string, int, int> >::iterator WC_CONN_IT; 
-typedef pair<string, tuple<string, string, int, int> > WC_CONN_PAIR;
+typedef multimap<string, boost::tuple<string, string, int, int> >::iterator WC_CONN_IT; 
+typedef pair<string, boost::tuple<string, string, int, int> > WC_CONN_PAIR;
 
 struct WeightContainer: public DataExporter
 {
   //data
   Vector<real_t> weights;
   Vector<real_t> derivatives;
-  multimap<string, tuple<string, string, int, int> > connections;
-	
+  multimap<string, boost::tuple<string, string, int, int> > connections;
+
   //functions
   WeightContainer(DataExportHandler *deh):
     DataExporter("weightContainer", deh)
@@ -68,9 +68,9 @@ struct WeightContainer: public DataExporter
   }
 
   void link_layers(const string& fromName, const string& toName, const string& connName = "", int paramBegin = 0, int paramEnd = 0) {
-    connections.insert(make_pair(toName, make_tuple(fromName, connName, paramBegin, paramEnd)));
+    connections.insert(make_pair(toName, boost::make_tuple(fromName, connName, paramBegin, paramEnd)));
   }
-  
+
   pair<size_t, size_t> new_parameters(size_t numParams, const string& fromName, const string& toName, const string& connName) {
     size_t begin = weights.size();
     weights.resize(weights.size() + numParams);

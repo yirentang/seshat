@@ -81,6 +81,7 @@ int main(int argc, char *argv[]) {
   m.print();
   printf("\n");
 
+  seshat.show_strokes(&m);
   //Parse math expression
   seshat.parse_me(&m);
   

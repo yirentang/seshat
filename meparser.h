@@ -32,6 +32,9 @@
 #include "tablecyk.h"
 #include "cellcyk.h"
 
+#include "nlohmann/json.hpp"
+using json = nlohmann::json;
+
 class meParser{
 
   Grammar *G;
@@ -50,6 +53,7 @@ class meParser{
   void loadSymRec(char *conf);
   int  tree2dot(FILE *fd, Hypothesis *H, int id);
 
+
   void initCYKterms(Sample *m, TableCYK *tcyk, int N, int K);
 
   void combineStrokes(Sample *M, TableCYK *tcyk, LogSpace **LSP, int N);
@@ -66,6 +70,11 @@ class meParser{
   void print_symrec(Hypothesis *H);
   void print_latex(Hypothesis *H);
   void save_dot( Hypothesis *H, char *outfile );
+
+  void print_json(Hypothesis *H, Sample *M);
+  json save_json(Hypothesis *H, int *index);
+  void show_strokes(Sample *M);
+  json add_boxes(json j, Sample *M);
 };
 
 #endif

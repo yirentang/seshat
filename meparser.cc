@@ -17,6 +17,7 @@
 */
 #include "meparser.h"
 
+using json = nlohmann::json;
 //Symbol classifier N-Best
 #define NB 10
 
@@ -924,6 +925,11 @@ void meParser::parse_me(Sample *M) {
 
   printf("LaTeX:\n");
   print_latex( mlh );
+  printf("\n");
+
+  printf("JSON:\n");
+
+  print_json(mlh, M);
 
   //Save InkML file of the recognized expression
   M->printInkML( G, mlh );
@@ -943,13 +949,16 @@ void meParser::print_symrec(Hypothesis *H) {
     print_symrec( H->hd );
   }
   else {
+    printf("Terminal symbol class number: %d\n", H->clase);
     string clatex = H->pt->getTeX( H->clase );
     
     printf("%s {", clatex.c_str());
-    
-    for(int i=0; i<H->parent->nc; i++)
-      if( H->parent->ccc[i] )
-	printf(" %d", i);
+    // nc is the number of strokes
+    for(int i=0; i < H->parent->nc; i++){
+      if( H->parent->ccc[i] ){
+        printf(" %d", i);
+      }
+    }
     printf(" }\n");
   }
 }
@@ -965,7 +974,122 @@ void meParser::print_latex(Hypothesis *H) {
   printf("\n");
 }
 
+void meParser::show_strokes(Sample *M){
+  printf("Strokes data: \n");
+  for (int i = 0; i < M->nStrokes(); i++){
+    Stroke* sp = M->getStroke(i);
+    printf("Stroke %d: {X: %d, Y: %d, w: %d, h: %d}\n", i, sp->rx, sp->ry,
+    sp->rs-sp->rx, sp->rt-sp->ry);
+  }
+  printf("\n");
+}
 
+// get the json representation of the parse tree
+void meParser::print_json(Hypothesis *H, Sample *M){
+  int index = 0;
+  json j = save_json(H, &index);
+  j = add_boxes(j, M);
+  string parse_tree = j.dump();
+  //printf("%s", parse_tree.c_str());
+  std::cout << std::setw(2) << j << std::endl;
+}
+
+json meParser::save_json(Hypothesis *H, int *index){
+  json j;
+
+  if (!H->pt){
+    int a = H->prod->A;
+    int b = H->prod->B;
+
+    j["0type"] = "relation";
+    j["1index"] = *index;
+    j["2id"] = G->key2str(H->ntid);
+    *index += 1;
+    string s;
+    s = (char) H->prod->tipo();
+    j["3label"] = s;
+
+    j["5lchild"] = save_json(H->hi, index);
+    j["6rchild"] = save_json(H->hd, index);
+
+  } else {
+    j["0type"] = "symbol";
+    j["1index"] = *index;
+    j["2id"] = G->key2str(H->pt->getNoTerm());
+    *index += 1;
+    string aux = H->pt->getTeX(H->clase);
+    j["3label"] = aux.c_str();
+
+    vector<int> strokes;
+    for(int i=0; i < H->parent->nc; i++){
+      if( H->parent->ccc[i] ){
+        strokes.push_back(i);
+      }
+    }
+    j["7strokes"] = strokes;
+  }
+  return j;
+}
+
+json meParser::add_boxes(json j, Sample *M){
+  if (j.count("4bbox")){
+    return j;
+  } else {
+    int rx, ry, rs, rt;
+    if (j["0type"] == "symbol"){
+      vector<int> strokes = j["7strokes"];
+      Stroke* stroke1 = M->getStroke(strokes[0]);
+      rx = stroke1->rx;
+      ry = stroke1->ry;
+      rs = stroke1->rs;
+      rt = stroke1->rt;
+      for (int i = 0; i < strokes.size(); i++){
+        Stroke* strokei = M->getStroke(strokes[i]);
+        if (strokei->rx < rx){
+          rx = strokei->rx;
+        }
+        if (strokei->ry < ry){
+          ry = strokei->ry;
+        }
+        if (strokei->rs > rs){
+          rs = strokei->rs;
+        }
+        if (strokei->rt > rt){
+          rt = strokei->rt;
+        }
+      }
+      json bbox;
+      bbox["X"] = rx; bbox["Y"] = ry; bbox["w"] = rs-rx; bbox["h"] = rt-ry;
+      j["4bbox"] = bbox;
+
+      return j;
+    } else {
+      json lchild = add_boxes(j["5lchild"], M);
+      json rchild = add_boxes(j["6rchild"], M);
+      j["5lchild"] = lchild;
+      j["6rchild"] = rchild;
+
+      json bbox1 = lchild["4bbox"];
+      json bbox2 = rchild["4bbox"];
+      int X1 = bbox1["X"], X2 = bbox2["X"];
+      int Y1 = bbox1["Y"], Y2 = bbox2["Y"];
+      int w1 = bbox1["w"], w2 = bbox2["w"];
+      int h1 = bbox1["h"], h2 = bbox2["h"];
+      rx = min(X1, X2);
+      ry = min(Y1, Y2);
+      rs = max(X1+w1, X2+w2);
+      rt = max(Y1+h1, Y2+h2);
+
+      json bbox;
+      bbox["X"] = rx; bbox["Y"] = ry; bbox["w"] = rs-rx; bbox["h"] = rt-ry;
+      j["4bbox"] = bbox;
+
+      return j;
+    }
+  }
+}
+
+// save the dot file, used to visualize the parse tree
 void meParser::save_dot( Hypothesis *H, char *outfile ) {
   FILE *fd=fopen(outfile, "w");
   if( !fd )
